@@ -17,6 +17,7 @@ use std::fmt::Display;
 use serde::ser;
 use thiserror::Error;
 
+pub use form::Form;
 pub use simple::Simple;
 
 #[derive(Error, PartialEq, Debug)]
@@ -110,4 +111,5 @@ where
     }
 }
 
+mod form;
 mod simple;
