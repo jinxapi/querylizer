@@ -25,6 +25,7 @@ enum State {
     InnerNext,
 }
 
+/// Serialize a value into an OpenAPI `simple` path parameter.
 pub struct Simple<F>
 where
     F: for<'a> EncodingFn<'a>,
@@ -39,6 +40,19 @@ impl<F> Simple<F>
 where
     F: for<'a> EncodingFn<'a>,
 {
+    /// Serialize a `simple` value into a new string to be used for web requests.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use querylizer::{escape_path, Simple};
+    /// let s = Simple::to_string(
+    ///     &["blue", "moon"],
+    ///     false,
+    ///     escape_path
+    /// ).unwrap();
+    /// assert_eq!(s, "blue,moon".to_owned());
+    /// ```
     pub fn to_string<T>(value: &T, explode: bool, encoder: F) -> Result<String, QuerylizerError>
     where
         T: Serialize,
@@ -53,6 +67,20 @@ where
         Ok(serializer.output)
     }
 
+    /// Append a `simple` value onto an existing string to be used for web requests.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use querylizer::{escape_path, Simple};
+    /// let s = Simple::extend(
+    ///     "https:://example.com/v1/".to_owned(),
+    ///     &["blue", "moon"],
+    ///     false,
+    ///     escape_path
+    /// ).unwrap();
+    /// assert_eq!(s, "https:://example.com/v1/blue,moon".to_owned());
+    /// ```
     pub fn extend<T>(
         output: String,
         value: &T,

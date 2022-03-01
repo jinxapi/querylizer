@@ -1,9 +1,14 @@
 [package]
+edition = "2021"
 name = "querylizer"
 version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Jonathan Giddy"]
+description = "Serialization library for OpenAPI parameter styles"
+homepage = "https://github.com/jinxapi/querylizer/blob/main/README.md"
+keywords = ["openapi", "serde", "web"]
+categories = ["encoding"]
+license = "Apache-2.0"
+repository = "https://github.com/jinxapi/querylizer"
 
 [dependencies]
 dtoa = "1.0.2"

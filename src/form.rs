@@ -27,6 +27,7 @@ enum State {
     InnerNext,
 }
 
+/// Serialize a value into an OpenAPI `form` query parameter.
 pub struct Form<F>
 where
     F: for<'a> EncodingFn<'a>,
@@ -42,6 +43,20 @@ impl<F> Form<F>
 where
     F: for<'a> EncodingFn<'a>,
 {
+    /// Serialize a `form` value into a new string to be used for web requests.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use querylizer::{escape_query, Form};
+    /// let s = Form::to_string(
+    ///     "song".into(),
+    ///     &["blue", "moon"],
+    ///     false,
+    ///     escape_query
+    /// ).unwrap();
+    /// assert_eq!(s, "song=blue,moon".to_owned());
+    /// ```
     pub fn to_string<T>(
         name: Cow<str>,
         value: &T,
@@ -62,6 +77,21 @@ where
         Ok(serializer.output)
     }
 
+    /// Append a `form` value onto an existing string to be used for web requests.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use querylizer::{escape_query, Form};
+    /// let s = Form::extend(
+    ///     "https:://example.com/v1/?".to_owned(),
+    ///     "song".into(),
+    ///     &["blue", "moon"],
+    ///     false,
+    ///     escape_query
+    /// ).unwrap();
+    /// assert_eq!(s, "https:://example.com/v1/?song=blue,moon".to_owned());
+    /// ```
     pub fn extend<T>(
         output: String,
         name: Cow<str>,

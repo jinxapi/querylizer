@@ -78,18 +78,25 @@ const QUERY_SIMPLE_ALLOW_RESERVED: &percent_encoding::AsciiSet = &QUERY_SIMPLE
     .remove(b']')
     .remove(b'@');
 
-pub fn escape_path_simple(s: &str) -> impl Iterator<Item = &str> {
+/// Encode a string to allow it to be added to a URL path.
+pub fn escape_path(s: &str) -> impl Iterator<Item = &str> {
     percent_encoding::utf8_percent_encode(s, PCHAR_SIMPLE)
 }
 
-pub fn escape_query_simple(s: &str) -> impl Iterator<Item = &str> {
+/// Encode a string to allow it to be added to a URL query.
+pub fn escape_query(s: &str) -> impl Iterator<Item = &str> {
     percent_encoding::utf8_percent_encode(s, QUERY_SIMPLE)
 }
 
-pub fn escape_query_simple_allow_reserved(s: &str) -> impl Iterator<Item = &str> {
+/// Encode a string to allow it to be added to a URL query, but allowing reserved
+/// characters to pass unencoded.  Since this allows `&` and `#` to appear in the
+/// query value, it should only be used when the URL query contains a single parameter.
+pub fn escape_query_allow_reserved(s: &str) -> impl Iterator<Item = &str> {
     percent_encoding::utf8_percent_encode(s, QUERY_SIMPLE_ALLOW_RESERVED)
 }
 
+/// An identity function that does not encode any characters.  This can be passed to
+/// the `querylizer` serializers if no encoding should be done.
 pub fn passthrough(s: &str) -> impl Iterator<Item = &str> {
     ::std::iter::once(s)
 }
