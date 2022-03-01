@@ -17,6 +17,7 @@ use std::fmt::Display;
 use serde::ser;
 use thiserror::Error;
 
+pub use deep::DeepObject;
 pub use form::Form;
 pub use simple::Simple;
 
@@ -111,5 +112,6 @@ where
     }
 }
 
+mod deep;
 mod form;
 mod simple;

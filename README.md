@@ -8,5 +8,6 @@ OpenAPI provides multiple styles for operation parameters.  `querylizer`
 provides a serde Serializer for each style.
 
 Currently supported styles are:
+- `deepObject`
 - `form`
 - `simple`
