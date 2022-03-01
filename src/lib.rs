@@ -23,6 +23,8 @@ pub use simple::Simple;
 pub enum QuerylizerError {
     #[error("serialization error")]
     SerializationError(String),
+    #[error("nested containers not supported")]
+    UnsupportedNesting,
     #[error("unsupported value")]
     UnsupportedValue,
     #[error("unknown error")]

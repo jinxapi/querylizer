@@ -16,6 +16,15 @@ use serde::{ser, Serialize, Serializer};
 
 use crate::{EncodingFn, QuerylizerError};
 
+enum State {
+    // Top-level outside any container
+    Outer,
+    // Inside a container, but no elements yet
+    InnerFirst,
+    // Inside a container after first element
+    InnerNext,
+}
+
 pub struct Simple<F>
 where
     F: for<'a> EncodingFn<'a>,
@@ -23,6 +32,7 @@ where
     output: String,
     explode: bool,
     encoder: F,
+    state: State,
 }
 
 impl<F> Simple<F>
@@ -37,6 +47,7 @@ where
             output: String::new(),
             explode,
             encoder,
+            state: State::Outer,
         };
         value.serialize(&mut serializer)?;
         Ok(serializer.output)
@@ -55,6 +66,7 @@ where
             output,
             explode,
             encoder,
+            state: State::Outer,
         };
         value.serialize(&mut serializer)?;
         Ok(serializer.output)
@@ -74,13 +86,13 @@ where
     // compound data structures like sequences and maps. In this case no
     // additional state is required beyond what is already stored in the
     // Serializer struct.
-    type SerializeSeq = SeqSerializer<'a, F>;
-    type SerializeTuple = SeqSerializer<'a, F>;
-    type SerializeTupleStruct = SeqSerializer<'a, F>;
-    type SerializeTupleVariant = SeqSerializer<'a, F>;
-    type SerializeMap = SeqSerializer<'a, F>;
-    type SerializeStruct = SeqSerializer<'a, F>;
-    type SerializeStructVariant = SeqSerializer<'a, F>;
+    type SerializeSeq = Self;
+    type SerializeTuple = Self;
+    type SerializeTupleStruct = Self;
+    type SerializeTupleVariant = Self;
+    type SerializeMap = Self;
+    type SerializeStruct = Self;
+    type SerializeStructVariant = Self;
 
     fn serialize_bool(self, _v: bool) -> Result<Self::Ok, Self::Error> {
         Err(QuerylizerError::UnsupportedValue)
@@ -208,21 +220,27 @@ where
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        let explode = self.explode;
-        Ok(SeqSerializer {
-            serializer: self,
-            first: true,
-            explode,
-        })
+        match self.state {
+            State::Outer => {
+                self.state = State::InnerFirst;
+                Ok(self)
+            }
+            _ => {
+                Err(QuerylizerError::UnsupportedNesting)
+            }
+        }
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        let explode = self.explode;
-        Ok(SeqSerializer {
-            serializer: self,
-            first: true,
-            explode,
-        })
+        match self.state {
+            State::Outer => {
+                self.state = State::InnerFirst;
+                Ok(self)
+            }
+            _ => {
+                Err(QuerylizerError::UnsupportedNesting)
+            }
+        }
     }
 
     fn serialize_tuple_struct(
@@ -230,12 +248,15 @@ where
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct, Self::Error> {
-        let explode = self.explode;
-        Ok(SeqSerializer {
-            serializer: self,
-            first: true,
-            explode,
-        })
+        match self.state {
+            State::Outer => {
+                self.state = State::InnerFirst;
+                Ok(self)
+            }
+            _ => {
+                Err(QuerylizerError::UnsupportedNesting)
+            }
+        }
     }
 
     fn serialize_tuple_variant(
@@ -245,21 +266,27 @@ where
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        let explode = self.explode;
-        Ok(SeqSerializer {
-            serializer: self,
-            first: true,
-            explode,
-        })
+        match self.state {
+            State::Outer => {
+                self.state = State::InnerFirst;
+                Ok(self)
+            }
+            _ => {
+                Err(QuerylizerError::UnsupportedNesting)
+            }
+        }
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        let explode = self.explode;
-        Ok(SeqSerializer {
-            serializer: self,
-            first: true,
-            explode,
-        })
+        match self.state {
+            State::Outer => {
+                self.state = State::InnerFirst;
+                Ok(self)
+            }
+            _ => {
+                Err(QuerylizerError::UnsupportedNesting)
+            }
+        }
     }
 
     fn serialize_struct(
@@ -267,12 +294,15 @@ where
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        let explode = self.explode;
-        Ok(SeqSerializer {
-            serializer: self,
-            first: true,
-            explode,
-        })
+        match self.state {
+            State::Outer => {
+                self.state = State::InnerFirst;
+                Ok(self)
+            }
+            _ => {
+                Err(QuerylizerError::UnsupportedNesting)
+            }
+        }
     }
 
     fn serialize_struct_variant(
@@ -282,27 +312,21 @@ where
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        let explode = self.explode;
-        Ok(SeqSerializer {
-            serializer: self,
-            first: true,
-            explode,
-        })
+        match self.state {
+            State::Outer => {
+                self.state = State::InnerFirst;
+                Ok(self)
+            }
+            _ => {
+                Err(QuerylizerError::UnsupportedNesting)
+            }
+        }
     }
-}
-
-pub struct SeqSerializer<'a, F>
-where
-    F: for<'b> EncodingFn<'b>,
-{
-    serializer: &'a mut Simple<F>,
-    first: bool,
-    explode: bool,
 }
 
 macro_rules! seq_serializer {
     ($trait:ty, $serialize:ident) => {
-        impl<'a, F> $trait for SeqSerializer<'a, F>
+        impl<'a, F> $trait for &'a mut Simple<F>
         where
             F: for<'b> EncodingFn<'b>,
         {
@@ -313,19 +337,25 @@ macro_rules! seq_serializer {
             where
                 T: ?Sized + Serialize,
             {
-                if self.first {
-                    self.first = false;
-                } else {
-                    self.serializer.output.push(',');
+                match self.state {
+                    State::Outer => unreachable!(),
+                    State::InnerFirst => self.state = State::InnerNext,
+                    State::InnerNext => {
+                        self.output.push(',');
+                    }
                 }
-                value.serialize(&mut *self.serializer)
+                value.serialize(&mut **self)
             }
 
             fn end(self) -> Result<(), Self::Error> {
-                if self.first {
-                    return Err(QuerylizerError::UnsupportedValue);
+                match self.state {
+                    State::Outer => unreachable!(),
+                    State::InnerFirst => Err(QuerylizerError::UnsupportedValue),
+                    State::InnerNext => {
+                        self.state = State::Outer;
+                        Ok(())
+                    }
                 }
-                Ok(())
             }
         }
     };
@@ -336,7 +366,7 @@ seq_serializer!(ser::SerializeTuple, serialize_element);
 seq_serializer!(ser::SerializeTupleStruct, serialize_field);
 seq_serializer!(ser::SerializeTupleVariant, serialize_field);
 
-impl<'a, F> ser::SerializeMap for SeqSerializer<'a, F>
+impl<'a, F> ser::SerializeMap for &'a mut Simple<F>
 where
     F: for<'b> EncodingFn<'b>,
 {
@@ -347,35 +377,44 @@ where
     where
         T: Serialize,
     {
-        if self.first {
-            self.first = false;
-        } else {
-            self.serializer.output.push(',');
+        match self.state {
+            State::Outer => unreachable!(),
+            State::InnerFirst => self.state = State::InnerNext,
+            State::InnerNext => {
+                self.output.push(',');
+            }
         }
-        key.serialize(&mut *self.serializer)
+        key.serialize(&mut **self)
     }
 
     fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
         T: Serialize,
     {
-        self.serializer
-            .output
-            .push(if self.explode { '=' } else { ',' });
-        value.serialize(&mut *self.serializer)
+        match self.state {
+            State::Outer => unreachable!(),
+            _ => {
+                self.output.push(if self.explode { '=' } else { ',' });
+            }
+        }
+        value.serialize(&mut **self)
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
-        if self.first {
-            return Err(QuerylizerError::UnsupportedValue);
+    fn end(self) -> Result<(), Self::Error> {
+        match self.state {
+            State::Outer => unreachable!(),
+            State::InnerFirst => Err(QuerylizerError::UnsupportedValue),
+            State::InnerNext => {
+                self.state = State::Outer;
+                Ok(())
+            }
         }
-        Ok(())
     }
 }
 
 macro_rules! struct_serializer {
     ($trait:ty) => {
-        impl<'a, F> $trait for SeqSerializer<'a, F>
+        impl<'a, F> $trait for &'a mut Simple<F>
         where
             F: for<'b> EncodingFn<'b>,
         {
@@ -390,23 +429,32 @@ macro_rules! struct_serializer {
             where
                 T: Serialize,
             {
-                if self.first {
-                    self.first = false;
-                } else {
-                    self.serializer.output.push(',');
+                match self.state {
+                    State::Outer => unreachable!(),
+                    State::InnerFirst => self.state = State::InnerNext,
+                    State::InnerNext => {
+                        self.output.push(',');
+                    }
                 }
-                key.serialize(&mut *self.serializer)?;
-                self.serializer
-                    .output
-                    .push(if self.explode { '=' } else { ',' });
-                value.serialize(&mut *self.serializer)
+                key.serialize(&mut **self)?;
+                match self.state {
+                    State::Outer => unreachable!(),
+                    _ => {
+                        self.output.push(if self.explode { '=' } else { ',' });
+                    }
+                }
+                value.serialize(&mut **self)
             }
 
-            fn end(self) -> Result<Self::Ok, Self::Error> {
-                if self.first {
-                    return Err(QuerylizerError::UnsupportedValue);
+            fn end(self) -> Result<(), Self::Error> {
+                match self.state {
+                    State::Outer => unreachable!(),
+                    State::InnerFirst => Err(QuerylizerError::UnsupportedValue),
+                    State::InnerNext => {
+                        self.state = State::Outer;
+                        Ok(())
+                    }
                 }
-                Ok(())
             }
         }
     };
@@ -720,6 +768,33 @@ mod tests {
         assert_eq!(
             Simple::to_string(&test, true, passthrough).unwrap(),
             "R=100,G=200,B=150"
+        );
+    }
+
+    #[test]
+    fn test_unsupported_nesting() {
+        #[derive(Serialize)]
+        struct Test {
+            #[serde(rename = "R")]
+            r: u32,
+            #[serde(rename = "G")]
+            g: u32,
+            #[serde(rename = "B")]
+            b: u32,
+        }
+
+        #[derive(Serialize)]
+        struct Outer {
+            t: Test
+        }
+        let test = Outer { t: Test {
+            r: 100,
+            g: 200,
+            b: 150,
+        }};
+        assert_eq!(
+            Simple::to_string(&test, false, passthrough),
+            Err(QuerylizerError::UnsupportedNesting)
         );
     }
 }
