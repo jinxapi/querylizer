@@ -127,8 +127,8 @@ where
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
-    fn serialize_bool(self, _v: bool) -> Result<Self::Ok, Self::Error> {
-        Err(QuerylizerError::UnsupportedValue)
+    fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
+        self.serialize_str(if v { "true" } else { "false" })
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
@@ -258,9 +258,7 @@ where
                 self.state = State::InnerFirst;
                 Ok(self)
             }
-            _ => {
-                Err(QuerylizerError::UnsupportedNesting)
-            }
+            _ => Err(QuerylizerError::UnsupportedNesting),
         }
     }
 
@@ -270,9 +268,7 @@ where
                 self.state = State::InnerFirst;
                 Ok(self)
             }
-            _ => {
-                Err(QuerylizerError::UnsupportedNesting)
-            }
+            _ => Err(QuerylizerError::UnsupportedNesting),
         }
     }
 
@@ -286,9 +282,7 @@ where
                 self.state = State::InnerFirst;
                 Ok(self)
             }
-            _ => {
-                Err(QuerylizerError::UnsupportedNesting)
-            }
+            _ => Err(QuerylizerError::UnsupportedNesting),
         }
     }
 
@@ -304,9 +298,7 @@ where
                 self.state = State::InnerFirst;
                 Ok(self)
             }
-            _ => {
-                Err(QuerylizerError::UnsupportedNesting)
-            }
+            _ => Err(QuerylizerError::UnsupportedNesting),
         }
     }
 
@@ -316,9 +308,7 @@ where
                 self.state = State::InnerFirst;
                 Ok(self)
             }
-            _ => {
-                Err(QuerylizerError::UnsupportedNesting)
-            }
+            _ => Err(QuerylizerError::UnsupportedNesting),
         }
     }
 
@@ -332,9 +322,7 @@ where
                 self.state = State::InnerFirst;
                 Ok(self)
             }
-            _ => {
-                Err(QuerylizerError::UnsupportedNesting)
-            }
+            _ => Err(QuerylizerError::UnsupportedNesting),
         }
     }
 
@@ -350,9 +338,7 @@ where
                 self.state = State::InnerFirst;
                 Ok(self)
             }
-            _ => {
-                Err(QuerylizerError::UnsupportedNesting)
-            }
+            _ => Err(QuerylizerError::UnsupportedNesting),
         }
     }
 }
@@ -506,10 +492,8 @@ mod tests {
 
     #[test]
     fn test_bool() -> Result<(), QuerylizerError> {
-        assert_eq!(
-            Simple::to_string(&true, false, passthrough),
-            Err(QuerylizerError::UnsupportedValue)
-        );
+        assert_eq!(Simple::to_string(&true, false, passthrough)?, "true");
+        assert_eq!(Simple::to_string(&false, false, passthrough)?, "false");
         Ok(())
     }
 
@@ -818,13 +802,15 @@ mod tests {
 
         #[derive(Serialize)]
         struct Outer {
-            t: Test
+            t: Test,
         }
-        let test = Outer { t: Test {
-            r: 100,
-            g: 200,
-            b: 150,
-        }};
+        let test = Outer {
+            t: Test {
+                r: 100,
+                g: 200,
+                b: 150,
+            },
+        };
         assert_eq!(
             Simple::to_string(&test, false, passthrough),
             Err(QuerylizerError::UnsupportedNesting)

@@ -1,5 +1,9 @@
 # Querylizer
 
+### Next
+
+- Support `boolean` serialization.
+
 ### v0.1.2 (2022-03-03)
 
 - Backwards-incompatible!

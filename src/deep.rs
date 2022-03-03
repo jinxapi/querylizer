@@ -59,11 +59,7 @@ where
     /// ).unwrap();
     /// assert_eq!(s, "value[a]=12&value[b]=%23hello".to_owned());
     /// ```
-    pub fn to_string<T>(
-        name: &str,
-        value: &T,
-        encoder: F,
-    ) -> Result<String, QuerylizerError>
+    pub fn to_string<T>(name: &str, value: &T, encoder: F) -> Result<String, QuerylizerError>
     where
         T: Serialize,
     {
@@ -140,8 +136,8 @@ where
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
-    fn serialize_bool(self, _v: bool) -> Result<Self::Ok, Self::Error> {
-        Err(QuerylizerError::UnsupportedValue)
+    fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
+        self.serialize_str(if v { "true" } else { "false" })
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
@@ -480,8 +476,12 @@ mod tests {
     #[test]
     fn test_bool() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color", &true, passthrough),
-            Err(QuerylizerError::UnsupportedValue)
+            DeepObject::to_string("color", &true, passthrough)?,
+            "color=true"
+        );
+        assert_eq!(
+            DeepObject::to_string("color", &false, passthrough)?,
+            "color=false"
         );
         Ok(())
     }
@@ -641,10 +641,7 @@ mod tests {
 
     #[test]
     fn test_unit() -> Result<(), QuerylizerError> {
-        assert_eq!(
-            DeepObject::to_string("color", &(), passthrough)?,
-            "color="
-        );
+        assert_eq!(DeepObject::to_string("color", &(), passthrough)?, "color=");
         Ok(())
     }
 
