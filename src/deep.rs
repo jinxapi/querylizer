@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
-
 use serde::{ser, Serialize, Serializer};
 
 use crate::{EncodingFn, QuerylizerError};
@@ -28,17 +26,17 @@ enum State {
 }
 
 /// Serialize a value into an OpenAPI `deepObject` query parameter.
-pub struct DeepObject<F>
+pub struct DeepObject<'s, F>
 where
     F: for<'a> EncodingFn<'a>,
 {
     output: String,
-    name: String,
+    name: &'s str,
     encoder: F,
     state: State,
 }
 
-impl<F> DeepObject<F>
+impl<'s, F> DeepObject<'s, F>
 where
     F: for<'a> EncodingFn<'a>,
 {
@@ -55,14 +53,14 @@ where
     /// }
     /// let a = A { a: 12, b: "#hello".to_owned() };
     /// let s = DeepObject::to_string(
-    ///     "value".into(),
+    ///     "value",
     ///     &a,
     ///     escape_query
     /// ).unwrap();
     /// assert_eq!(s, "value[a]=12&value[b]=%23hello".to_owned());
     /// ```
     pub fn to_string<T>(
-        name: Cow<str>,
+        name: &str,
         value: &T,
         encoder: F,
     ) -> Result<String, QuerylizerError>
@@ -71,7 +69,7 @@ where
     {
         let mut serializer = DeepObject {
             output: String::new(),
-            name: name.into_owned(),
+            name,
             encoder,
             state: State::Outer,
         };
@@ -92,16 +90,16 @@ where
     /// }
     /// let a = A { a: 12, b: "#hello".to_owned() };
     /// let s = DeepObject::extend(
-    ///     "https:://example.com/v1/?".to_owned(),
-    ///     "value".into(),
+    ///     "https://example.com/v1/?".to_owned(),
+    ///     "value",
     ///     &a,
     ///     escape_query
     /// ).unwrap();
-    /// assert_eq!(s, "https:://example.com/v1/?value[a]=12&value[b]=%23hello".to_owned());
+    /// assert_eq!(s, "https://example.com/v1/?value[a]=12&value[b]=%23hello".to_owned());
     /// ```
     pub fn extend<T>(
         output: String,
-        name: Cow<str>,
+        name: &str,
         value: &T,
         encoder: F,
     ) -> Result<String, QuerylizerError>
@@ -110,7 +108,7 @@ where
     {
         let mut serializer = DeepObject {
             output,
-            name: name.into_owned(),
+            name,
             encoder,
             state: State::Outer,
         };
@@ -119,7 +117,7 @@ where
     }
 }
 
-impl<'a, F> Serializer for &'a mut DeepObject<F>
+impl<'a, 's, F> Serializer for &'a mut DeepObject<'s, F>
 where
     F: for<'b> EncodingFn<'b>,
 {
@@ -200,7 +198,7 @@ where
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         if let State::Outer = self.state {
-            self.output.extend(self.encoder.call(&self.name));
+            self.output.extend(self.encoder.call(self.name));
             self.output.push('=');
         }
         self.output.extend(self.encoder.call(v));
@@ -348,7 +346,7 @@ where
 
 macro_rules! seq_serializer {
     ($trait:ty, $serialize:ident) => {
-        impl<'a, F> $trait for &'a mut DeepObject<F>
+        impl<'a, 's, F> $trait for &'a mut DeepObject<'s, F>
         where
             F: for<'b> EncodingFn<'b>,
         {
@@ -374,7 +372,7 @@ seq_serializer!(ser::SerializeTuple, serialize_element);
 seq_serializer!(ser::SerializeTupleStruct, serialize_field);
 seq_serializer!(ser::SerializeTupleVariant, serialize_field);
 
-impl<'a, F> ser::SerializeMap for &'a mut DeepObject<F>
+impl<'a, 's, F> ser::SerializeMap for &'a mut DeepObject<'s, F>
 where
     F: for<'b> EncodingFn<'b>,
 {
@@ -394,7 +392,7 @@ where
                 self.output.push('&');
             }
         }
-        self.output.extend(self.encoder.call(&self.name));
+        self.output.extend(self.encoder.call(self.name));
         self.output.push('[');
         key.serialize(&mut **self)
     }
@@ -421,7 +419,7 @@ where
 
 macro_rules! struct_serializer {
     ($trait:ty) => {
-        impl<'a, F> $trait for &'a mut DeepObject<F>
+        impl<'a, 's, F> $trait for &'a mut DeepObject<'s, F>
         where
             F: for<'b> EncodingFn<'b>,
         {
@@ -480,7 +478,7 @@ mod tests {
     #[test]
     fn test_bool() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &true, passthrough),
+            DeepObject::to_string("color", &true, passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -489,7 +487,7 @@ mod tests {
     #[test]
     fn test_i8() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &-1i8, passthrough)?,
+            DeepObject::to_string("color", &-1i8, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -498,7 +496,7 @@ mod tests {
     #[test]
     fn test_i16() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &-1i16, passthrough)?,
+            DeepObject::to_string("color", &-1i16, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -507,7 +505,7 @@ mod tests {
     #[test]
     fn test_i32() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &-1i32, passthrough)?,
+            DeepObject::to_string("color", &-1i32, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -516,7 +514,7 @@ mod tests {
     #[test]
     fn test_i64() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &-1i64, passthrough)?,
+            DeepObject::to_string("color", &-1i64, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -525,7 +523,7 @@ mod tests {
     #[test]
     fn test_i128() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &-1i128, passthrough)?,
+            DeepObject::to_string("color", &-1i128, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -534,7 +532,7 @@ mod tests {
     #[test]
     fn test_u8() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &1u8, passthrough)?,
+            DeepObject::to_string("color", &1u8, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -543,7 +541,7 @@ mod tests {
     #[test]
     fn test_u16() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &1u16, passthrough)?,
+            DeepObject::to_string("color", &1u16, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -552,7 +550,7 @@ mod tests {
     #[test]
     fn test_u32() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &1u32, passthrough)?,
+            DeepObject::to_string("color", &1u32, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -561,7 +559,7 @@ mod tests {
     #[test]
     fn test_u64() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &1u64, passthrough)?,
+            DeepObject::to_string("color", &1u64, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -570,7 +568,7 @@ mod tests {
     #[test]
     fn test_u128() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &1u128, passthrough)?,
+            DeepObject::to_string("color", &1u128, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -579,7 +577,7 @@ mod tests {
     #[test]
     fn test_f32() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &0.25f32, passthrough)?,
+            DeepObject::to_string("color", &0.25f32, passthrough)?,
             "color=0.25"
         );
         Ok(())
@@ -588,7 +586,7 @@ mod tests {
     #[test]
     fn test_f64() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &0.25f64, passthrough)?,
+            DeepObject::to_string("color", &0.25f64, passthrough)?,
             "color=0.25"
         );
         Ok(())
@@ -597,7 +595,7 @@ mod tests {
     #[test]
     fn test_char() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &'d', passthrough)?,
+            DeepObject::to_string("color", &'d', passthrough)?,
             "color=d"
         );
         Ok(())
@@ -606,7 +604,7 @@ mod tests {
     #[test]
     fn test_str() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &"blue", passthrough)?,
+            DeepObject::to_string("color", &"blue", passthrough)?,
             "color=blue"
         );
         Ok(())
@@ -615,7 +613,7 @@ mod tests {
     #[test]
     fn test_bytes() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), b"blue", passthrough),
+            DeepObject::to_string("color", b"blue", passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -624,7 +622,7 @@ mod tests {
     #[test]
     fn test_none() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string::<Option<u32>>("color".into(), &None, passthrough)?,
+            DeepObject::to_string::<Option<u32>>("color", &None, passthrough)?,
             "color="
         );
         Ok(())
@@ -633,7 +631,7 @@ mod tests {
     #[test]
     fn test_some() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &Some(1u32), passthrough)?,
+            DeepObject::to_string("color", &Some(1u32), passthrough)?,
             "color=1"
         );
         Ok(())
@@ -642,7 +640,7 @@ mod tests {
     #[test]
     fn test_unit() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepObject::to_string("color".into(), &(), passthrough)?,
+            DeepObject::to_string("color", &(), passthrough)?,
             "color="
         );
         Ok(())
@@ -653,7 +651,7 @@ mod tests {
         #[derive(Serialize)]
         struct T {}
         assert_eq!(
-            DeepObject::to_string("color".into(), &T {}, passthrough),
+            DeepObject::to_string("color", &T {}, passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -666,7 +664,7 @@ mod tests {
             A,
         }
         assert_eq!(
-            DeepObject::to_string("color".into(), &E::A, passthrough)?,
+            DeepObject::to_string("color", &E::A, passthrough)?,
             "color="
         );
         Ok(())
@@ -677,7 +675,7 @@ mod tests {
         #[derive(Serialize)]
         struct Metres(u32);
         assert_eq!(
-            DeepObject::to_string("color".into(), &Metres(5), passthrough)?,
+            DeepObject::to_string("color", &Metres(5), passthrough)?,
             "color=5"
         );
         Ok(())
@@ -690,7 +688,7 @@ mod tests {
             A(u32),
         }
         assert_eq!(
-            DeepObject::to_string("color".into(), &E::A(5), passthrough)?,
+            DeepObject::to_string("color", &E::A(5), passthrough)?,
             "color=5"
         );
         Ok(())
@@ -700,7 +698,7 @@ mod tests {
     fn test_seq() -> Result<(), QuerylizerError> {
         let v = vec!["blue", "black", "brown"];
         assert_eq!(
-            DeepObject::to_string("color".into(), &v, passthrough),
+            DeepObject::to_string("color", &v, passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -710,7 +708,7 @@ mod tests {
     fn test_tuple() -> Result<(), QuerylizerError> {
         let t = ("blue", "black", "brown");
         assert_eq!(
-            DeepObject::to_string("color".into(), &t, passthrough),
+            DeepObject::to_string("color", &t, passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -722,7 +720,7 @@ mod tests {
         struct Triple(&'static str, &'static str, &'static str);
         let v = Triple("blue", "black", "brown");
         assert_eq!(
-            DeepObject::to_string("color".into(), &v, passthrough),
+            DeepObject::to_string("color", &v, passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -735,7 +733,7 @@ mod tests {
             A(u32, char),
         }
         assert_eq!(
-            DeepObject::to_string("color".into(), &E::A(5, 'f'), passthrough),
+            DeepObject::to_string("color", &E::A(5, 'f'), passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -748,7 +746,7 @@ mod tests {
         m.insert("G", 200);
         m.insert("B", 150);
         assert_eq!(
-            DeepObject::to_string("color".into(), &m, passthrough)?,
+            DeepObject::to_string("color", &m, passthrough)?,
             "color[B]=150&color[G]=200&color[R]=100"
         );
         Ok(())
@@ -772,7 +770,7 @@ mod tests {
             b: 150,
         };
         assert_eq!(
-            DeepObject::to_string("color".into(), &test, passthrough).unwrap(),
+            DeepObject::to_string("color", &test, passthrough).unwrap(),
             "color[R]=100&color[G]=200&color[B]=150"
         );
     }
@@ -799,7 +797,7 @@ mod tests {
             b: 150,
         });
         assert_eq!(
-            DeepObject::to_string("color".into(), &test, passthrough).unwrap(),
+            DeepObject::to_string("color", &test, passthrough).unwrap(),
             "color[R]=100&color[G]=200&color[B]=150"
         );
     }
@@ -828,7 +826,7 @@ mod tests {
             },
         };
         assert_eq!(
-            DeepObject::to_string("color".into(), &test, passthrough),
+            DeepObject::to_string("color", &test, passthrough),
             Err(QuerylizerError::UnsupportedNesting)
         );
     }

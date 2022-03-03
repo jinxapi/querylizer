@@ -42,6 +42,12 @@ where
 {
     /// Serialize a `simple` value into a new string to be used for web requests.
     ///
+    /// If `explode` is `false` then, for maps and structs, keys and values are comma separated
+    /// (`key1,value1,key2,value2`).
+    ///
+    /// If `explode` is `true` then, for maps and structs, keys and values are separated with `=`
+    /// (`key1=value1,key2=value2`)
+    ///
     /// # Example
     ///
     /// ```
@@ -69,17 +75,23 @@ where
 
     /// Append a `simple` value onto an existing string to be used for web requests.
     ///
+    /// If `explode` is `false` then, for maps and structs, keys and values are comma separated
+    /// (`key1,value1,key2,value2`).
+    ///
+    /// If `explode` is `true` then, for maps and structs, keys and values are separated with `=`
+    /// (`key1=value1,key2=value2`)
+    ///
     /// # Example
     ///
     /// ```
     /// use querylizer::{escape_path, Simple};
     /// let s = Simple::extend(
-    ///     "https:://example.com/v1/".to_owned(),
+    ///     "https://example.com/v1/".to_owned(),
     ///     &["blue", "moon"],
     ///     false,
     ///     escape_path
     /// ).unwrap();
-    /// assert_eq!(s, "https:://example.com/v1/blue,moon".to_owned());
+    /// assert_eq!(s, "https://example.com/v1/blue,moon".to_owned());
     /// ```
     pub fn extend<T>(
         output: String,

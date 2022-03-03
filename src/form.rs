@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::borrow::Cow;
-
 use serde::{ser, Serialize, Serializer};
 
 use crate::{EncodingFn, QuerylizerError};
@@ -28,37 +26,53 @@ enum State {
 }
 
 /// Serialize a value into an OpenAPI `form` query parameter.
-pub struct Form<F>
+pub struct Form<'s, F>
 where
     F: for<'a> EncodingFn<'a>,
 {
     output: String,
-    name: String,
+    name: &'s str,
     explode: bool,
     encoder: F,
     state: State,
 }
 
-impl<F> Form<F>
+impl<'s, F> Form<'s, F>
 where
     F: for<'a> EncodingFn<'a>,
 {
     /// Serialize a `form` value into a new string to be used for web requests.
     ///
+    /// If `explode` is `false`:
+    /// - sequences and tuples use the name once and items are comma-separated (`name=item1,item2`)
+    /// - maps and structs use the name once and keys and values are comma separated
+    /// (`name=key1,value1,key2,value2`).
+    ///
+    /// If `explode` is `true`:
+    /// - sequences repeat the name and separate with `&` (`name=item1&name=item2`)
+    /// - maps and structs do not use the name and keys and values are separated with `=`
+    /// (`key1=value1&key2=value2`)
+    ///
     /// # Example
     ///
     /// ```
     /// use querylizer::{escape_query, Form};
+    /// #[derive(serde::Serialize)]
+    /// struct A {
+    ///     a: i32,
+    ///     b: String,
+    /// }
+    /// let a = A { a: 12, b: "#hello".to_owned() };
     /// let s = Form::to_string(
-    ///     "song".into(),
-    ///     &["blue", "moon"],
+    ///     "value",
+    ///     &a,
     ///     false,
     ///     escape_query
     /// ).unwrap();
-    /// assert_eq!(s, "song=blue,moon".to_owned());
+    /// assert_eq!(s, "value=a,12,b,%23hello".to_owned());
     /// ```
     pub fn to_string<T>(
-        name: Cow<str>,
+        name: &str,
         value: &T,
         explode: bool,
         encoder: F,
@@ -68,7 +82,7 @@ where
     {
         let mut serializer = Form {
             output: String::new(),
-            name: name.into_owned(),
+            name,
             explode,
             encoder,
             state: State::Outer,
@@ -79,22 +93,38 @@ where
 
     /// Append a `form` value onto an existing string to be used for web requests.
     ///
+    /// If `explode` is `false`:
+    /// - sequences and tuples use the name once and items are comma-separated (`name=item1,item2`)
+    /// - maps and structs use the name once and keys and values are comma separated
+    /// (`name=key1,value1,key2,value2`).
+    ///
+    /// If `explode` is `true`:
+    /// - sequences repeat the name and separate with `&` (`name=item1&name=item2`)
+    /// - maps and structs do not use the name and keys and values are separated with `=`
+    /// (`key1=value1&key2=value2`)
+    ///
     /// # Example
     ///
     /// ```
     /// use querylizer::{escape_query, Form};
+    /// #[derive(serde::Serialize)]
+    /// struct A {
+    ///     a: i32,
+    ///     b: String,
+    /// }
+    /// let a = A { a: 12, b: "#hello".to_owned() };
     /// let s = Form::extend(
-    ///     "https:://example.com/v1/?".to_owned(),
-    ///     "song".into(),
-    ///     &["blue", "moon"],
-    ///     false,
+    ///     "https://example.com/v1/?".to_owned(),
+    ///     "value",
+    ///     &a,
+    ///     true,
     ///     escape_query
     /// ).unwrap();
-    /// assert_eq!(s, "https:://example.com/v1/?song=blue,moon".to_owned());
+    /// assert_eq!(s, "https://example.com/v1/?a=12&b=%23hello".to_owned());
     /// ```
     pub fn extend<T>(
         output: String,
-        name: Cow<str>,
+        name: &str,
         value: &T,
         explode: bool,
         encoder: F,
@@ -104,7 +134,7 @@ where
     {
         let mut serializer = Form {
             output,
-            name: name.into_owned(),
+            name,
             explode,
             encoder,
             state: State::Outer,
@@ -114,7 +144,7 @@ where
     }
 }
 
-impl<'a, F> Serializer for &'a mut Form<F>
+impl<'a, 's, F> Serializer for &'a mut Form<'s, F>
 where
     F: for<'b> EncodingFn<'b>,
 {
@@ -195,7 +225,7 @@ where
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         if let State::Outer = self.state {
-            self.output.extend(self.encoder.call(&self.name));
+            self.output.extend(self.encoder.call(self.name));
             self.output.push('=');
         }
         self.output.extend(self.encoder.call(v));
@@ -373,7 +403,7 @@ where
 
 macro_rules! seq_serializer {
     ($trait:ty, $serialize:ident) => {
-        impl<'a, F> $trait for &'a mut Form<F>
+        impl<'a, 's, F> $trait for &'a mut Form<'s, F>
         where
             F: for<'b> EncodingFn<'b>,
         {
@@ -423,7 +453,7 @@ seq_serializer!(ser::SerializeTuple, serialize_element);
 seq_serializer!(ser::SerializeTupleStruct, serialize_field);
 seq_serializer!(ser::SerializeTupleVariant, serialize_field);
 
-impl<'a, F> ser::SerializeMap for &'a mut Form<F>
+impl<'a, 's, F> ser::SerializeMap for &'a mut Form<'s, F>
 where
     F: for<'b> EncodingFn<'b>,
 {
@@ -439,7 +469,7 @@ where
             State::InnerFirst => {
                 self.state = State::InnerNext;
                 if !self.explode {
-                    self.output.extend(self.encoder.call(&self.name));
+                    self.output.extend(self.encoder.call(self.name));
                     self.output.push('=');
                 }
             }
@@ -477,7 +507,7 @@ where
 
 macro_rules! struct_serializer {
     ($trait:ty) => {
-        impl<'a, F> $trait for &'a mut Form<F>
+        impl<'a, 's, F> $trait for &'a mut Form<'s, F>
         where
             F: for<'b> EncodingFn<'b>,
         {
@@ -543,7 +573,7 @@ mod tests {
     #[test]
     fn test_bool() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &true, false, passthrough),
+            Form::to_string("color", &true, false, passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -552,7 +582,7 @@ mod tests {
     #[test]
     fn test_i8() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &-1i8, false, passthrough)?,
+            Form::to_string("color", &-1i8, false, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -561,7 +591,7 @@ mod tests {
     #[test]
     fn test_i16() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &-1i16, false, passthrough)?,
+            Form::to_string("color", &-1i16, false, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -570,7 +600,7 @@ mod tests {
     #[test]
     fn test_i32() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &-1i32, false, passthrough)?,
+            Form::to_string("color", &-1i32, false, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -579,7 +609,7 @@ mod tests {
     #[test]
     fn test_i64() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &-1i64, false, passthrough)?,
+            Form::to_string("color", &-1i64, false, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -588,7 +618,7 @@ mod tests {
     #[test]
     fn test_i128() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &-1i128, false, passthrough)?,
+            Form::to_string("color", &-1i128, false, passthrough)?,
             "color=-1"
         );
         Ok(())
@@ -597,7 +627,7 @@ mod tests {
     #[test]
     fn test_u8() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &1u8, false, passthrough)?,
+            Form::to_string("color", &1u8, false, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -606,7 +636,7 @@ mod tests {
     #[test]
     fn test_u16() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &1u16, false, passthrough)?,
+            Form::to_string("color", &1u16, false, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -615,7 +645,7 @@ mod tests {
     #[test]
     fn test_u32() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &1u32, false, passthrough)?,
+            Form::to_string("color", &1u32, false, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -624,7 +654,7 @@ mod tests {
     #[test]
     fn test_u64() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &1u64, false, passthrough)?,
+            Form::to_string("color", &1u64, false, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -633,7 +663,7 @@ mod tests {
     #[test]
     fn test_u128() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &1u128, false, passthrough)?,
+            Form::to_string("color", &1u128, false, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -642,7 +672,7 @@ mod tests {
     #[test]
     fn test_f32() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &0.25f32, false, passthrough)?,
+            Form::to_string("color", &0.25f32, false, passthrough)?,
             "color=0.25"
         );
         Ok(())
@@ -651,7 +681,7 @@ mod tests {
     #[test]
     fn test_f64() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &0.25f64, false, passthrough)?,
+            Form::to_string("color", &0.25f64, false, passthrough)?,
             "color=0.25"
         );
         Ok(())
@@ -660,7 +690,7 @@ mod tests {
     #[test]
     fn test_char() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &'d', false, passthrough)?,
+            Form::to_string("color", &'d', false, passthrough)?,
             "color=d"
         );
         Ok(())
@@ -669,7 +699,7 @@ mod tests {
     #[test]
     fn test_str() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &"blue", false, passthrough)?,
+            Form::to_string("color", &"blue", false, passthrough)?,
             "color=blue"
         );
         Ok(())
@@ -678,11 +708,11 @@ mod tests {
     #[test]
     fn test_bytes() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), b"blue", false, passthrough)?,
+            Form::to_string("color", b"blue", false, passthrough)?,
             "color=98,108,117,101"
         );
         assert_eq!(
-            Form::to_string("color".into(), b"blue", true, passthrough)?,
+            Form::to_string("color", b"blue", true, passthrough)?,
             "color=98&color=108&color=117&color=101"
         );
         Ok(())
@@ -691,7 +721,7 @@ mod tests {
     #[test]
     fn test_none() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string::<Option<u32>>("color".into(), &None, false, passthrough)?,
+            Form::to_string::<Option<u32>>("color", &None, false, passthrough)?,
             "color="
         );
         Ok(())
@@ -700,7 +730,7 @@ mod tests {
     #[test]
     fn test_some() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &Some(1u32), false, passthrough)?,
+            Form::to_string("color", &Some(1u32), false, passthrough)?,
             "color=1"
         );
         Ok(())
@@ -709,7 +739,7 @@ mod tests {
     #[test]
     fn test_unit() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Form::to_string("color".into(), &(), false, passthrough)?,
+            Form::to_string("color", &(), false, passthrough)?,
             "color="
         );
         Ok(())
@@ -720,7 +750,7 @@ mod tests {
         #[derive(Serialize)]
         struct T {}
         assert_eq!(
-            Form::to_string("color".into(), &T {}, false, passthrough),
+            Form::to_string("color", &T {}, false, passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -733,7 +763,7 @@ mod tests {
             A,
         }
         assert_eq!(
-            Form::to_string("color".into(), &E::A, false, passthrough)?,
+            Form::to_string("color", &E::A, false, passthrough)?,
             "color="
         );
         Ok(())
@@ -744,7 +774,7 @@ mod tests {
         #[derive(Serialize)]
         struct Metres(u32);
         assert_eq!(
-            Form::to_string("color".into(), &Metres(5), false, passthrough)?,
+            Form::to_string("color", &Metres(5), false, passthrough)?,
             "color=5"
         );
         Ok(())
@@ -757,7 +787,7 @@ mod tests {
             A(u32),
         }
         assert_eq!(
-            Form::to_string("color".into(), &E::A(5), false, passthrough)?,
+            Form::to_string("color", &E::A(5), false, passthrough)?,
             "color=5"
         );
         Ok(())
@@ -767,11 +797,11 @@ mod tests {
     fn test_seq() -> Result<(), QuerylizerError> {
         let v = vec!["blue", "black", "brown"];
         assert_eq!(
-            Form::to_string("color".into(), &v, false, passthrough)?,
+            Form::to_string("color", &v, false, passthrough)?,
             "color=blue,black,brown"
         );
         assert_eq!(
-            Form::to_string("color".into(), &v, true, passthrough)?,
+            Form::to_string("color", &v, true, passthrough)?,
             "color=blue&color=black&color=brown"
         );
         Ok(())
@@ -781,11 +811,11 @@ mod tests {
     fn test_tuple() -> Result<(), QuerylizerError> {
         let t = ("blue", "black", "brown");
         assert_eq!(
-            Form::to_string("color".into(), &t, false, passthrough)?,
+            Form::to_string("color", &t, false, passthrough)?,
             "color=blue,black,brown"
         );
         assert_eq!(
-            Form::to_string("color".into(), &t, true, passthrough)?,
+            Form::to_string("color", &t, true, passthrough)?,
             "color=blue&color=black&color=brown"
         );
         Ok(())
@@ -797,11 +827,11 @@ mod tests {
         struct Triple(&'static str, &'static str, &'static str);
         let v = Triple("blue", "black", "brown");
         assert_eq!(
-            Form::to_string("color".into(), &v, false, passthrough)?,
+            Form::to_string("color", &v, false, passthrough)?,
             "color=blue,black,brown"
         );
         assert_eq!(
-            Form::to_string("color".into(), &v, true, passthrough)?,
+            Form::to_string("color", &v, true, passthrough)?,
             "color=blue&color=black&color=brown"
         );
         Ok(())
@@ -814,7 +844,7 @@ mod tests {
             A(u32, char),
         }
         assert_eq!(
-            Form::to_string("color".into(), &E::A(5, 'f'), false, passthrough)?,
+            Form::to_string("color", &E::A(5, 'f'), false, passthrough)?,
             "color=5,f"
         );
         Ok(())
@@ -827,11 +857,11 @@ mod tests {
         m.insert("G", 200);
         m.insert("B", 150);
         assert_eq!(
-            Form::to_string("color".into(), &m, false, passthrough)?,
+            Form::to_string("color", &m, false, passthrough)?,
             "color=B,150,G,200,R,100"
         );
         assert_eq!(
-            Form::to_string("color".into(), &m, true, passthrough)?,
+            Form::to_string("color", &m, true, passthrough)?,
             "B=150&G=200&R=100"
         );
         Ok(())
@@ -855,11 +885,11 @@ mod tests {
             b: 150,
         };
         assert_eq!(
-            Form::to_string("color".into(), &test, false, passthrough).unwrap(),
+            Form::to_string("color", &test, false, passthrough).unwrap(),
             "color=R,100,G,200,B,150"
         );
         assert_eq!(
-            Form::to_string("color".into(), &test, true, passthrough).unwrap(),
+            Form::to_string("color", &test, true, passthrough).unwrap(),
             "R=100&G=200&B=150"
         );
     }
@@ -886,11 +916,11 @@ mod tests {
             b: 150,
         });
         assert_eq!(
-            Form::to_string("color".into(), &test, false, passthrough).unwrap(),
+            Form::to_string("color", &test, false, passthrough).unwrap(),
             "color=R,100,G,200,B,150"
         );
         assert_eq!(
-            Form::to_string("color".into(), &test, true, passthrough).unwrap(),
+            Form::to_string("color", &test, true, passthrough).unwrap(),
             "R=100&G=200&B=150"
         );
     }
@@ -919,7 +949,7 @@ mod tests {
             },
         };
         assert_eq!(
-            Form::to_string("color".into(), &test, false, passthrough),
+            Form::to_string("color", &test, false, passthrough),
             Err(QuerylizerError::UnsupportedNesting)
         );
     }
