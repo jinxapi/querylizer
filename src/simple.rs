@@ -51,8 +51,8 @@ where
     /// # Example
     ///
     /// ```
-    /// use querylizer::{escape_path, Simple};
-    /// let s = Simple::to_string(&["blue", "moon"], false, escape_path).unwrap();
+    /// use querylizer::{encode_path, Simple};
+    /// let s = Simple::to_string(&["blue", "moon"], false, encode_path).unwrap();
     /// assert_eq!(s, "blue,moon".to_owned());
     /// ```
     pub fn to_string<T>(value: &T, explode: bool, encoder: F) -> Result<String, QuerylizerError>
@@ -81,9 +81,9 @@ where
     /// # Example
     ///
     /// ```
-    /// use querylizer::{escape_path, Simple};
+    /// use querylizer::{encode_path, Simple};
     /// let mut s = "https://example.com/v1/".to_owned();
-    /// Simple::extend(&mut s, &["blue", "moon"], false, escape_path).unwrap();
+    /// Simple::extend(&mut s, &["blue", "moon"], false, encode_path).unwrap();
     /// assert_eq!(s, "https://example.com/v1/blue,moon".to_owned());
     /// ```
     pub fn extend<T>(

@@ -79,19 +79,19 @@ const QUERY_SIMPLE_ALLOW_RESERVED: &percent_encoding::AsciiSet = &QUERY_SIMPLE
     .remove(b'@');
 
 /// Encode a string to allow it to be added to a URL path.
-pub fn escape_path(s: &str) -> impl Iterator<Item = &str> {
+pub fn encode_path(s: &str) -> impl Iterator<Item = &str> {
     percent_encoding::utf8_percent_encode(s, PCHAR_SIMPLE)
 }
 
 /// Encode a string to allow it to be added to a URL query.
-pub fn escape_query(s: &str) -> impl Iterator<Item = &str> {
+pub fn encode_query(s: &str) -> impl Iterator<Item = &str> {
     percent_encoding::utf8_percent_encode(s, QUERY_SIMPLE)
 }
 
 /// Encode a string to allow it to be added to a URL query, but allowing reserved
 /// characters to pass unencoded.  Since this allows `&` and `#` to appear in the
 /// query value, it should only be used when the URL query contains a single parameter.
-pub fn escape_query_allow_reserved(s: &str) -> impl Iterator<Item = &str> {
+pub fn encode_query_allow_reserved(s: &str) -> impl Iterator<Item = &str> {
     percent_encoding::utf8_percent_encode(s, QUERY_SIMPLE_ALLOW_RESERVED)
 }
 

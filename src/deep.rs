@@ -45,7 +45,7 @@ where
     /// # Example
     ///
     /// ```
-    /// use querylizer::{escape_query, DeepObject};
+    /// use querylizer::{encode_query, DeepObject};
     /// #[derive(serde::Serialize)]
     /// struct A {
     ///     a: i32,
@@ -55,7 +55,7 @@ where
     /// let s = DeepObject::to_string(
     ///     "value",
     ///     &a,
-    ///     escape_query
+    ///     encode_query
     /// ).unwrap();
     /// assert_eq!(s, "value[a]=12&value[b]=%23hello".to_owned());
     /// ```
@@ -83,7 +83,7 @@ where
     /// # Example
     ///
     /// ```
-    /// use querylizer::{escape_query, DeepObject};
+    /// use querylizer::{encode_query, DeepObject};
     /// #[derive(serde::Serialize)]
     /// struct A {
     ///     a: i32,
@@ -95,7 +95,7 @@ where
     ///     &mut s,
     ///     "value",
     ///     &a,
-    ///     escape_query
+    ///     encode_query
     /// ).unwrap();
     /// assert_eq!(s, "https://example.com/v1/?value[a]=12&value[b]=%23hello".to_owned());
     /// ```

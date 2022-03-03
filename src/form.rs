@@ -56,14 +56,14 @@ where
     /// # Example
     ///
     /// ```
-    /// use querylizer::{escape_query, Form};
+    /// use querylizer::{encode_query, Form};
     /// #[derive(serde::Serialize)]
     /// struct A {
     ///     a: i32,
     ///     b: String,
     /// }
     /// let a = A { a: 12, b: "#hello".to_owned() };
-    /// let s = Form::to_string("value", &a, false, escape_query).unwrap();
+    /// let s = Form::to_string("value", &a, false, encode_query).unwrap();
     /// assert_eq!(s, "value=a,12,b,%23hello".to_owned());
     /// ```
     pub fn to_string<T>(
@@ -102,7 +102,7 @@ where
     /// # Example
     ///
     /// ```
-    /// use querylizer::{escape_query, Form};
+    /// use querylizer::{encode_query, Form};
     /// #[derive(serde::Serialize)]
     /// struct A {
     ///     a: i32,
@@ -110,7 +110,7 @@ where
     /// }
     /// let a = A { a: 12, b: "#hello".to_owned() };
     /// let mut s = "https://example.com/v1/?".to_owned();
-    /// Form::extend(&mut s, "value", &a, true, escape_query).unwrap();
+    /// Form::extend(&mut s, "value", &a, true, encode_query).unwrap();
     /// assert_eq!(s, "https://example.com/v1/?a=12&b=%23hello".to_owned());
     /// ```
     pub fn extend<T>(
