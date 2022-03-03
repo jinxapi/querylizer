@@ -65,7 +65,10 @@ const PCHAR_SIMPLE: &percent_encoding::AsciiSet = &UNRESERVED
     .remove(b':')
     .remove(b'@');
 
-const QUERY_SIMPLE: &percent_encoding::AsciiSet = &PCHAR_SIMPLE.remove(b'/').remove(b'?');
+// While `+` can be left unencoded in a query according to RFC3986, historically it has been
+// interpreted as encoding a space character. Always encode `+` (and space) to avoid ambiguity.
+// Meanwhile, `/` and `?` lose the special meaning that they have in a path.
+const QUERY_SIMPLE: &percent_encoding::AsciiSet = &PCHAR_SIMPLE.remove(b'/').remove(b'?').add(b'+');
 
 // allowReserved allows all reserved characters to be not percent encoded
 
