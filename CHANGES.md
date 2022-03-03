@@ -1,6 +1,6 @@
 # Querylizer
 
-### Next
+### v0.1.2 (2022-03-03)
 
 - Backwards-incompatible!
 - Pass extended string as mutable reference.

@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "querylizer"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jonathan Giddy"]
 description = "Serialization library for OpenAPI parameter styles"
 homepage = "https://github.com/jinxapi/querylizer/blob/main/README.md"
