@@ -30,7 +30,7 @@ pub struct DeepObject<'s, F>
 where
     F: for<'a> EncodingFn<'a>,
 {
-    output: String,
+    output: &'s mut String,
     name: &'s str,
     encoder: F,
     state: State,
@@ -67,14 +67,15 @@ where
     where
         T: Serialize,
     {
+        let mut output = String::new();
         let mut serializer = DeepObject {
-            output: String::new(),
+            output: &mut output,
             name,
             encoder,
             state: State::Outer,
         };
         value.serialize(&mut serializer)?;
-        Ok(serializer.output)
+        Ok(output)
     }
 
     /// Append a `deepObject` value onto an existing string to be used for web requests.
@@ -89,8 +90,9 @@ where
     ///     b: String,
     /// }
     /// let a = A { a: 12, b: "#hello".to_owned() };
-    /// let s = DeepObject::extend(
-    ///     "https://example.com/v1/?".to_owned(),
+    /// let mut s = "https://example.com/v1/?".to_owned();
+    /// DeepObject::extend(
+    ///     &mut s,
     ///     "value",
     ///     &a,
     ///     escape_query
@@ -98,11 +100,11 @@ where
     /// assert_eq!(s, "https://example.com/v1/?value[a]=12&value[b]=%23hello".to_owned());
     /// ```
     pub fn extend<T>(
-        output: String,
+        output: &mut String,
         name: &str,
         value: &T,
         encoder: F,
-    ) -> Result<String, QuerylizerError>
+    ) -> Result<(), QuerylizerError>
     where
         T: Serialize,
     {
@@ -113,7 +115,7 @@ where
             state: State::Outer,
         };
         value.serialize(&mut serializer)?;
-        Ok(serializer.output)
+        Ok(())
     }
 }
 

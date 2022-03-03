@@ -26,17 +26,17 @@ enum State {
 }
 
 /// Serialize a value into an OpenAPI `simple` path parameter.
-pub struct Simple<F>
+pub struct Simple<'s, F>
 where
     F: for<'a> EncodingFn<'a>,
 {
-    output: String,
+    output: &'s mut String,
     explode: bool,
     encoder: F,
     state: State,
 }
 
-impl<F> Simple<F>
+impl<'s, F> Simple<'s, F>
 where
     F: for<'a> EncodingFn<'a>,
 {
@@ -52,25 +52,22 @@ where
     ///
     /// ```
     /// use querylizer::{escape_path, Simple};
-    /// let s = Simple::to_string(
-    ///     &["blue", "moon"],
-    ///     false,
-    ///     escape_path
-    /// ).unwrap();
+    /// let s = Simple::to_string(&["blue", "moon"], false, escape_path).unwrap();
     /// assert_eq!(s, "blue,moon".to_owned());
     /// ```
     pub fn to_string<T>(value: &T, explode: bool, encoder: F) -> Result<String, QuerylizerError>
     where
         T: Serialize,
     {
+        let mut output = String::new();
         let mut serializer = Simple {
-            output: String::new(),
+            output: &mut output,
             explode,
             encoder,
             state: State::Outer,
         };
         value.serialize(&mut serializer)?;
-        Ok(serializer.output)
+        Ok(output)
     }
 
     /// Append a `simple` value onto an existing string to be used for web requests.
@@ -85,20 +82,16 @@ where
     ///
     /// ```
     /// use querylizer::{escape_path, Simple};
-    /// let s = Simple::extend(
-    ///     "https://example.com/v1/".to_owned(),
-    ///     &["blue", "moon"],
-    ///     false,
-    ///     escape_path
-    /// ).unwrap();
+    /// let mut s = "https://example.com/v1/".to_owned();
+    /// Simple::extend(&mut s, &["blue", "moon"], false, escape_path).unwrap();
     /// assert_eq!(s, "https://example.com/v1/blue,moon".to_owned());
     /// ```
     pub fn extend<T>(
-        output: String,
+        output: &mut String,
         value: &T,
         explode: bool,
         encoder: F,
-    ) -> Result<String, QuerylizerError>
+    ) -> Result<(), QuerylizerError>
     where
         T: Serialize,
     {
@@ -109,11 +102,11 @@ where
             state: State::Outer,
         };
         value.serialize(&mut serializer)?;
-        Ok(serializer.output)
+        Ok(())
     }
 }
 
-impl<'a, F> Serializer for &'a mut Simple<F>
+impl<'a, 's, F> Serializer for &'a mut Simple<'s, F>
 where
     F: for<'b> EncodingFn<'b>,
 {
@@ -366,7 +359,7 @@ where
 
 macro_rules! seq_serializer {
     ($trait:ty, $serialize:ident) => {
-        impl<'a, F> $trait for &'a mut Simple<F>
+        impl<'a, 's, F> $trait for &'a mut Simple<'s, F>
         where
             F: for<'b> EncodingFn<'b>,
         {
@@ -406,7 +399,7 @@ seq_serializer!(ser::SerializeTuple, serialize_element);
 seq_serializer!(ser::SerializeTupleStruct, serialize_field);
 seq_serializer!(ser::SerializeTupleVariant, serialize_field);
 
-impl<'a, F> ser::SerializeMap for &'a mut Simple<F>
+impl<'a, 's, F> ser::SerializeMap for &'a mut Simple<'s, F>
 where
     F: for<'b> EncodingFn<'b>,
 {
@@ -454,7 +447,7 @@ where
 
 macro_rules! struct_serializer {
     ($trait:ty) => {
-        impl<'a, F> $trait for &'a mut Simple<F>
+        impl<'a, 's, F> $trait for &'a mut Simple<'s, F>
         where
             F: for<'b> EncodingFn<'b>,
         {

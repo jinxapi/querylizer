@@ -30,7 +30,7 @@ pub struct Form<'s, F>
 where
     F: for<'a> EncodingFn<'a>,
 {
-    output: String,
+    output: &'s mut String,
     name: &'s str,
     explode: bool,
     encoder: F,
@@ -63,12 +63,7 @@ where
     ///     b: String,
     /// }
     /// let a = A { a: 12, b: "#hello".to_owned() };
-    /// let s = Form::to_string(
-    ///     "value",
-    ///     &a,
-    ///     false,
-    ///     escape_query
-    /// ).unwrap();
+    /// let s = Form::to_string("value", &a, false, escape_query).unwrap();
     /// assert_eq!(s, "value=a,12,b,%23hello".to_owned());
     /// ```
     pub fn to_string<T>(
@@ -80,15 +75,16 @@ where
     where
         T: Serialize,
     {
+        let mut output = String::new();
         let mut serializer = Form {
-            output: String::new(),
+            output: &mut output,
             name,
             explode,
             encoder,
             state: State::Outer,
         };
         value.serialize(&mut serializer)?;
-        Ok(serializer.output)
+        Ok(output)
     }
 
     /// Append a `form` value onto an existing string to be used for web requests.
@@ -113,22 +109,17 @@ where
     ///     b: String,
     /// }
     /// let a = A { a: 12, b: "#hello".to_owned() };
-    /// let s = Form::extend(
-    ///     "https://example.com/v1/?".to_owned(),
-    ///     "value",
-    ///     &a,
-    ///     true,
-    ///     escape_query
-    /// ).unwrap();
+    /// let mut s = "https://example.com/v1/?".to_owned();
+    /// Form::extend(&mut s, "value", &a, true, escape_query).unwrap();
     /// assert_eq!(s, "https://example.com/v1/?a=12&b=%23hello".to_owned());
     /// ```
     pub fn extend<T>(
-        output: String,
+        output: &mut String,
         name: &str,
         value: &T,
         explode: bool,
         encoder: F,
-    ) -> Result<String, QuerylizerError>
+    ) -> Result<(), QuerylizerError>
     where
         T: Serialize,
     {
@@ -140,7 +131,7 @@ where
             state: State::Outer,
         };
         value.serialize(&mut serializer)?;
-        Ok(serializer.output)
+        Ok(())
     }
 }
 
