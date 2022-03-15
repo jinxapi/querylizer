@@ -1,7 +1,8 @@
 # Querylizer
 
-### Next
+### v0.1.4 (2022-03-15)
 
+- Follow OpenAPI spec for query parameter encoding.
 - Support x-www-form-urlencoded encoding.
 
 ### v0.1.3 (2022-03-03)

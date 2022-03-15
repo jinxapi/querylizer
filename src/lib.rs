@@ -50,7 +50,7 @@ const UNRESERVED: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUME
     .remove(b'_')
     .remove(b'~');
 
-const PCHAR_SIMPLE: &percent_encoding::AsciiSet = &UNRESERVED
+const PATH_SIMPLE: &percent_encoding::AsciiSet = &UNRESERVED
     .remove(b'!')
     .remove(b'$')
     .remove(b'&')
@@ -65,12 +65,7 @@ const PCHAR_SIMPLE: &percent_encoding::AsciiSet = &UNRESERVED
     .remove(b':')
     .remove(b'@');
 
-// While `+` can be left unencoded in a query according to RFC3986, historically it has been
-// interpreted as encoding a space character. Always encode `+` (and space) to avoid ambiguity.
-// Meanwhile, `/` and `?` lose the special meaning that they have in a path.
-const QUERY_SIMPLE: &percent_encoding::AsciiSet = &PCHAR_SIMPLE.remove(b'/').remove(b'?').add(b'+');
-
-// allowReserved allows all reserved characters to be not percent encoded
+const QUERY_SIMPLE: &percent_encoding::AsciiSet = UNRESERVED;
 
 const QUERY_SIMPLE_ALLOW_RESERVED: &percent_encoding::AsciiSet = &QUERY_SIMPLE
     .remove(b':')
@@ -79,7 +74,18 @@ const QUERY_SIMPLE_ALLOW_RESERVED: &percent_encoding::AsciiSet = &QUERY_SIMPLE
     .remove(b'#')
     .remove(b'[')
     .remove(b']')
-    .remove(b'@');
+    .remove(b'@')
+    .remove(b'!')
+    .remove(b'$')
+    .remove(b'&')
+    .remove(b'\'')
+    .remove(b'(')
+    .remove(b')')
+    .remove(b'*')
+    .remove(b'+')
+    .remove(b',')
+    .remove(b';')
+    .remove(b'=');
 
 // https://url.spec.whatwg.org/#application-x-www-form-urlencoded-percent-encode-set
 const WWW_FORM_URL_ENCODED: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
@@ -90,7 +96,7 @@ const WWW_FORM_URL_ENCODED: &percent_encoding::AsciiSet = &percent_encoding::NON
 
 /// Encode a string to allow it to be added to a URL path.
 pub fn encode_path(s: &str) -> impl Iterator<Item = &str> {
-    percent_encoding::utf8_percent_encode(s, PCHAR_SIMPLE)
+    percent_encoding::utf8_percent_encode(s, PATH_SIMPLE)
 }
 
 /// Encode a string to allow it to be added to a URL query.
@@ -106,7 +112,7 @@ pub fn encode_path(s: &str) -> impl Iterator<Item = &str> {
 /// }
 /// let v = V { a: "a red&car~", b: "a/blue=boat" };
 /// let s = Form::to_string("", &v, true, encode_query).unwrap();
-/// assert_eq!(s, "a=a%20red&car~&b=a/blue=boat");
+/// assert_eq!(s, "a=a%20red%26car~&b=a%2Fblue%3Dboat");
 /// ```
 pub fn encode_query(s: &str) -> impl Iterator<Item = &str> {
     percent_encoding::utf8_percent_encode(s, QUERY_SIMPLE)
