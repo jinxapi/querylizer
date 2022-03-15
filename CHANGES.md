@@ -1,5 +1,9 @@
 # Querylizer
 
+### Next
+
+- Support x-www-form-urlencoded encoding.
+
 ### v0.1.3 (2022-03-03)
 
 - Support `boolean` serialization.
