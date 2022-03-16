@@ -18,6 +18,7 @@ use serde::ser;
 use thiserror::Error;
 
 pub use deep::DeepObject;
+pub use deepform::DeepForm;
 pub use form::Form;
 pub use simple::Simple;
 
@@ -111,7 +112,7 @@ pub fn encode_path(s: &str) -> impl Iterator<Item = &str> {
 ///     b: &'static str,
 /// }
 /// let v = V { a: "a red&car~", b: "a/blue=boat" };
-/// let s = Form::to_string("", &v, true, encode_query).unwrap();
+/// let s = Form::to_string("", &v, true, &encode_query).unwrap();
 /// assert_eq!(s, "a=a%20red%26car~&b=a%2Fblue%3Dboat");
 /// ```
 pub fn encode_query(s: &str) -> impl Iterator<Item = &str> {
@@ -134,7 +135,7 @@ pub fn encode_query(s: &str) -> impl Iterator<Item = &str> {
 ///     b: &'static str,
 /// }
 /// let v = V { a: "a red&car~", b: "a/blue=boat" };
-/// let s = Form::to_string("", &v, true, encode_query_allow_reserved).unwrap();
+/// let s = Form::to_string("", &v, true, &encode_query_allow_reserved).unwrap();
 /// assert_eq!(s, "a=a%20red&car~&b=a/blue=boat");
 /// ```
 pub fn encode_query_allow_reserved(s: &str) -> impl Iterator<Item = &str> {
@@ -156,7 +157,7 @@ pub fn encode_query_allow_reserved(s: &str) -> impl Iterator<Item = &str> {
 ///     b: &'static str,
 /// }
 /// let v = V { a: "a red&car~", b: "a/blue=boat" };
-/// let s = Form::to_string("", &v, true, encode_www_form_urlencoded).unwrap();
+/// let s = Form::to_string("", &v, true, &encode_www_form_urlencoded).unwrap();
 /// assert_eq!(s, "a=a%20red%26car%7E&b=a%2Fblue%3Dboat");
 /// ```
 pub fn encode_www_form_urlencoded(s: &str) -> impl Iterator<Item = &str> {
@@ -189,5 +190,6 @@ where
 }
 
 mod deep;
+mod deepform;
 mod form;
 mod simple;

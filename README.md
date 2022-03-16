@@ -11,3 +11,5 @@ Currently supported styles are:
 - `deepObject`
 - `form`
 - `simple`
+
+There is also a `deepform` style that is useful for OpenAPI request bodies that mix `form` and `deepObject` styles.

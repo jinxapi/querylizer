@@ -32,7 +32,7 @@ where
 {
     output: &'s mut String,
     explode: bool,
-    encoder: F,
+    encoder: &'s F,
     state: State,
 }
 
@@ -52,12 +52,12 @@ where
     ///
     /// ```
     /// use querylizer::{encode_path, Simple};
-    /// let s = Simple::to_string(&["blue", "moon"], false, encode_path).unwrap();
+    /// let s = Simple::to_string(&["blue", "moon"], false, &encode_path).unwrap();
     /// assert_eq!(s, "blue,moon".to_owned());
     /// ```
-    pub fn to_string<T>(value: &T, explode: bool, encoder: F) -> Result<String, QuerylizerError>
+    pub fn to_string<T>(value: &T, explode: bool, encoder: &F) -> Result<String, QuerylizerError>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         let mut output = String::new();
         let mut serializer = Simple {
@@ -83,17 +83,17 @@ where
     /// ```
     /// use querylizer::{encode_path, Simple};
     /// let mut s = "https://example.com/v1/".to_owned();
-    /// Simple::extend(&mut s, &["blue", "moon"], false, encode_path).unwrap();
+    /// Simple::extend(&mut s, &["blue", "moon"], false, &encode_path).unwrap();
     /// assert_eq!(s, "https://example.com/v1/blue,moon".to_owned());
     /// ```
     pub fn extend<T>(
         output: &mut String,
         value: &T,
         explode: bool,
-        encoder: F,
+        encoder: &F,
     ) -> Result<(), QuerylizerError>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         let mut serializer = Simple {
             output,
@@ -204,9 +204,9 @@ where
         Err(QuerylizerError::UnsupportedValue)
     }
 
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_some<T>(self, _value: &T) -> Result<Self::Ok, Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         Err(QuerylizerError::UnsupportedValue)
     }
@@ -228,18 +228,18 @@ where
         Err(QuerylizerError::UnsupportedValue)
     }
 
-    fn serialize_newtype_struct<T: ?Sized>(
+    fn serialize_newtype_struct<T>(
         self,
         _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
 
-    fn serialize_newtype_variant<T: ?Sized>(
+    fn serialize_newtype_variant<T>(
         self,
         _name: &'static str,
         _variant_index: u32,
@@ -247,7 +247,7 @@ where
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
@@ -392,9 +392,9 @@ where
     type Ok = ();
     type Error = QuerylizerError;
 
-    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         match self.state {
             State::Outer => unreachable!(),
@@ -406,9 +406,9 @@ where
         key.serialize(&mut **self)
     }
 
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: Serialize,
+        T: ?Sized + Serialize,
     {
         match self.state {
             State::Outer => unreachable!(),
@@ -440,13 +440,13 @@ macro_rules! struct_serializer {
             type Ok = ();
             type Error = QuerylizerError;
 
-            fn serialize_field<T: ?Sized>(
+            fn serialize_field<T>(
                 &mut self,
                 key: &'static str,
                 value: &T,
             ) -> Result<(), Self::Error>
             where
-                T: Serialize,
+                T: ?Sized + Serialize,
             {
                 match self.state {
                     State::Outer => unreachable!(),
@@ -492,99 +492,99 @@ mod tests {
 
     #[test]
     fn test_bool() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&true, false, passthrough)?, "true");
-        assert_eq!(Simple::to_string(&false, false, passthrough)?, "false");
+        assert_eq!(Simple::to_string(&true, false, &passthrough)?, "true");
+        assert_eq!(Simple::to_string(&false, false, &passthrough)?, "false");
         Ok(())
     }
 
     #[test]
     fn test_i8() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&-1i8, false, passthrough)?, "-1");
+        assert_eq!(Simple::to_string(&-1i8, false, &passthrough)?, "-1");
         Ok(())
     }
 
     #[test]
     fn test_i16() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&-1i16, false, passthrough)?, "-1");
+        assert_eq!(Simple::to_string(&-1i16, false, &passthrough)?, "-1");
         Ok(())
     }
 
     #[test]
     fn test_i32() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&-1i32, false, passthrough)?, "-1");
+        assert_eq!(Simple::to_string(&-1i32, false, &passthrough)?, "-1");
         Ok(())
     }
 
     #[test]
     fn test_i64() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&-1i64, false, passthrough)?, "-1");
+        assert_eq!(Simple::to_string(&-1i64, false, &passthrough)?, "-1");
         Ok(())
     }
 
     #[test]
     fn test_i128() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&-1i128, false, passthrough)?, "-1");
+        assert_eq!(Simple::to_string(&-1i128, false, &passthrough)?, "-1");
         Ok(())
     }
 
     #[test]
     fn test_u8() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&1u8, false, passthrough)?, "1");
+        assert_eq!(Simple::to_string(&1u8, false, &passthrough)?, "1");
         Ok(())
     }
 
     #[test]
     fn test_u16() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&1u16, false, passthrough)?, "1");
+        assert_eq!(Simple::to_string(&1u16, false, &passthrough)?, "1");
         Ok(())
     }
 
     #[test]
     fn test_u32() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&1u32, false, passthrough)?, "1");
+        assert_eq!(Simple::to_string(&1u32, false, &passthrough)?, "1");
         Ok(())
     }
 
     #[test]
     fn test_u64() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&1u64, false, passthrough)?, "1");
+        assert_eq!(Simple::to_string(&1u64, false, &passthrough)?, "1");
         Ok(())
     }
 
     #[test]
     fn test_u128() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&1u128, false, passthrough)?, "1");
+        assert_eq!(Simple::to_string(&1u128, false, &passthrough)?, "1");
         Ok(())
     }
 
     #[test]
     fn test_f32() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&0.25f32, false, passthrough)?, "0.25");
+        assert_eq!(Simple::to_string(&0.25f32, false, &passthrough)?, "0.25");
         Ok(())
     }
 
     #[test]
     fn test_f64() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&0.25f64, false, passthrough)?, "0.25");
+        assert_eq!(Simple::to_string(&0.25f64, false, &passthrough)?, "0.25");
         Ok(())
     }
 
     #[test]
     fn test_char() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&'d', false, passthrough)?, "d");
+        assert_eq!(Simple::to_string(&'d', false, &passthrough)?, "d");
         Ok(())
     }
 
     #[test]
     fn test_str() -> Result<(), QuerylizerError> {
-        assert_eq!(Simple::to_string(&"blue", false, passthrough)?, "blue");
+        assert_eq!(Simple::to_string(&"blue", false, &passthrough)?, "blue");
         Ok(())
     }
 
     #[test]
     fn test_bytes() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Simple::to_string(b"blue", false, passthrough)?,
+            Simple::to_string(b"blue", false, &passthrough)?,
             "98,108,117,101"
         );
         Ok(())
@@ -593,7 +593,7 @@ mod tests {
     #[test]
     fn test_none() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Simple::to_string::<Option<u32>>(&None, false, passthrough),
+            Simple::to_string::<Option<u32>>(&None, false, &passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -602,7 +602,7 @@ mod tests {
     #[test]
     fn test_some() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Simple::to_string(&Some(1u32), false, passthrough),
+            Simple::to_string(&Some(1u32), false, &passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -611,7 +611,7 @@ mod tests {
     #[test]
     fn test_unit() -> Result<(), QuerylizerError> {
         assert_eq!(
-            Simple::to_string(&(), false, passthrough),
+            Simple::to_string(&(), false, &passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -622,7 +622,7 @@ mod tests {
         #[derive(Serialize)]
         struct T {}
         assert_eq!(
-            Simple::to_string(&T {}, false, passthrough),
+            Simple::to_string(&T {}, false, &passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -635,7 +635,7 @@ mod tests {
             A,
         }
         assert_eq!(
-            Simple::to_string(&E::A, false, passthrough),
+            Simple::to_string(&E::A, false, &passthrough),
             Err(QuerylizerError::UnsupportedValue)
         );
         Ok(())
@@ -645,7 +645,7 @@ mod tests {
     fn test_newtype_struct() -> Result<(), QuerylizerError> {
         #[derive(Serialize)]
         struct Metres(u32);
-        assert_eq!(Simple::to_string(&Metres(5), false, passthrough)?, "5");
+        assert_eq!(Simple::to_string(&Metres(5), false, &passthrough)?, "5");
         Ok(())
     }
 
@@ -655,7 +655,7 @@ mod tests {
         enum E {
             A(u32),
         }
-        assert_eq!(Simple::to_string(&E::A(5), false, passthrough)?, "5");
+        assert_eq!(Simple::to_string(&E::A(5), false, &passthrough)?, "5");
         Ok(())
     }
 
@@ -663,11 +663,11 @@ mod tests {
     fn test_seq() -> Result<(), QuerylizerError> {
         let v = vec!["blue", "black", "brown"];
         assert_eq!(
-            Simple::to_string(&v, false, passthrough)?,
+            Simple::to_string(&v, false, &passthrough)?,
             "blue,black,brown"
         );
         assert_eq!(
-            Simple::to_string(&v, true, passthrough)?,
+            Simple::to_string(&v, true, &passthrough)?,
             "blue,black,brown"
         );
         Ok(())
@@ -677,11 +677,11 @@ mod tests {
     fn test_tuple() -> Result<(), QuerylizerError> {
         let t = ("blue", "black", "brown");
         assert_eq!(
-            Simple::to_string(&t, false, passthrough)?,
+            Simple::to_string(&t, false, &passthrough)?,
             "blue,black,brown"
         );
         assert_eq!(
-            Simple::to_string(&t, true, passthrough)?,
+            Simple::to_string(&t, true, &passthrough)?,
             "blue,black,brown"
         );
         Ok(())
@@ -693,11 +693,11 @@ mod tests {
         struct Triple(&'static str, &'static str, &'static str);
         let v = Triple("blue", "black", "brown");
         assert_eq!(
-            Simple::to_string(&v, false, passthrough)?,
+            Simple::to_string(&v, false, &passthrough)?,
             "blue,black,brown"
         );
         assert_eq!(
-            Simple::to_string(&v, true, passthrough)?,
+            Simple::to_string(&v, true, &passthrough)?,
             "blue,black,brown"
         );
         Ok(())
@@ -709,7 +709,7 @@ mod tests {
         enum E {
             A(u32, char),
         }
-        assert_eq!(Simple::to_string(&E::A(5, 'f'), false, passthrough)?, "5,f");
+        assert_eq!(Simple::to_string(&E::A(5, 'f'), false, &passthrough)?, "5,f");
         Ok(())
     }
 
@@ -720,11 +720,11 @@ mod tests {
         m.insert("G", 200);
         m.insert("B", 150);
         assert_eq!(
-            Simple::to_string(&m, false, passthrough)?,
+            Simple::to_string(&m, false, &passthrough)?,
             "B,150,G,200,R,100"
         );
         assert_eq!(
-            Simple::to_string(&m, true, passthrough)?,
+            Simple::to_string(&m, true, &passthrough)?,
             "B=150,G=200,R=100"
         );
         Ok(())
@@ -748,11 +748,11 @@ mod tests {
             b: 150,
         };
         assert_eq!(
-            Simple::to_string(&test, false, passthrough).unwrap(),
+            Simple::to_string(&test, false, &passthrough).unwrap(),
             "R,100,G,200,B,150"
         );
         assert_eq!(
-            Simple::to_string(&test, true, passthrough).unwrap(),
+            Simple::to_string(&test, true, &passthrough).unwrap(),
             "R=100,G=200,B=150"
         );
     }
@@ -779,11 +779,11 @@ mod tests {
             b: 150,
         });
         assert_eq!(
-            Simple::to_string(&test, false, passthrough).unwrap(),
+            Simple::to_string(&test, false, &passthrough).unwrap(),
             "R,100,G,200,B,150"
         );
         assert_eq!(
-            Simple::to_string(&test, true, passthrough).unwrap(),
+            Simple::to_string(&test, true, &passthrough).unwrap(),
             "R=100,G=200,B=150"
         );
     }
@@ -812,7 +812,7 @@ mod tests {
             },
         };
         assert_eq!(
-            Simple::to_string(&test, false, passthrough),
+            Simple::to_string(&test, false, &passthrough),
             Err(QuerylizerError::UnsupportedNesting)
         );
     }

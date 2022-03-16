@@ -1,5 +1,11 @@
 # Querylizer
 
+### v0.2.0 (2022-03-16)
+
+- Backwards-incompatible!
+- Add `deepform` for bodies of mixed Form and DeepObject parameters
+- Pass encoding function as a reference to support `deepform` sharing it with `deepObject`.
+
 ### v0.1.4 (2022-03-15)
 
 - Follow OpenAPI spec for query parameter encoding.
