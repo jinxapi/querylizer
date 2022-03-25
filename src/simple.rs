@@ -709,7 +709,10 @@ mod tests {
         enum E {
             A(u32, char),
         }
-        assert_eq!(Simple::to_string(&E::A(5, 'f'), false, &passthrough)?, "5,f");
+        assert_eq!(
+            Simple::to_string(&E::A(5, 'f'), false, &passthrough)?,
+            "5,f"
+        );
         Ok(())
     }
 

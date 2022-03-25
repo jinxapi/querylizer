@@ -733,7 +733,10 @@ mod tests {
 
     #[test]
     fn test_unit() -> Result<(), QuerylizerError> {
-        assert_eq!(Form::to_string("color", &(), false, &passthrough)?, "color=");
+        assert_eq!(
+            Form::to_string("color", &(), false, &passthrough)?,
+            "color="
+        );
         Ok(())
     }
 

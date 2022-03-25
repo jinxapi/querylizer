@@ -691,12 +691,7 @@ mod tests {
     #[test]
     fn test_none() -> Result<(), QuerylizerError> {
         assert_eq!(
-            DeepForm::to_string::<Option<u32>>(
-                "color",
-                &None,
-                &passthrough,
-                &HashSet::new()
-            )?,
+            DeepForm::to_string::<Option<u32>>("color", &None, &passthrough, &HashSet::new())?,
             "color="
         );
         Ok(())
